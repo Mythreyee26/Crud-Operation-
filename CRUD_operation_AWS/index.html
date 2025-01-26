@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookshelf CRUD</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        .container {
+            max-width: 800px;
+            margin: 50px auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        form {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        input, select, button {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .actions button {
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bookshelf</h1>
+        <form id="bookForm">
+            <input type="text" id="bookTitle" placeholder="Book Title" required>
+            <select id="bookStatus">
+                <option value="to-be-read">To Be Read</option>
+                <option value="read">Read</option>
+            </select>
+            <button type="submit">Add Book</button>
+        </form>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="bookList"></tbody>
+        </table>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'https://50hxmnha3g.execute-api.ap-south-1.amazonaws.com/crud'; // Replace with your API Gateway URL
+        const bookForm = document.getElementById('bookForm');
+        const bookList = document.getElementById('bookList');
+
+        let books = [];
+
+        // Fetch books from DynamoDB through API Gateway
+        async function fetchBooks() {
+            const response = await fetch(`${API_BASE_URL}/books`);
+            const data = await response.json();
+            books = data;
+            renderBooks();
+        }
+
+        // Add a book through API Gateway
+        async function addBook(book) {
+            const response = await fetch(`${API_BASE_URL}/books`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(book)
+            });
+            const newBook = await response.json();
+            books.push(newBook);
+            renderBooks();
+        }
+
+        // Update a book through API Gateway
+        async function updateBook(book) {
+            const response = await fetch(`${API_BASE_URL}/books/${book.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(book)
+            });
+            const updatedBook = await response.json();
+            const index = books.findIndex(b => b.id === updatedBook.id);
+            if (index !== -1) {
+                books[index] = updatedBook;
+            }
+            renderBooks();
+        }
+
+        // Delete a book through API Gateway
+        async function deleteBook(id) {
+            const response = await fetch(`${API_BASE_URL}/books/${id}`, {
+                method: 'DELETE'
+            });
+            if (response.ok) {
+                books = books.filter(book => book.id !== id);
+                renderBooks();
+            }
+        }
+
+        // Render books in the table
+        function renderBooks() {
+            bookList.innerHTML = '';
+            books.forEach((book) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${book.title}</td>
+                    <td>${book.status}</td>
+                    <td class="actions">
+                        <button onclick="editBook(${book.id})">Edit</button>
+                        <button onclick="deleteBook(${book.id})">Delete</button>
+                    </td>
+                `;
+                bookList.appendChild(row);
+            });
+        }
+
+        // Edit a book
+        function editBook(id) {
+            const book = books.find((b) => b.id === id);
+            if (book) {
+                document.getElementById('bookTitle').value = book.title;
+                document.getElementById('bookStatus').value = book.status;
+                deleteBook(id);
+            }
+        }
+
+        // Form submission
+        bookForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('bookTitle').value;
+            const status = document.getElementById('bookStatus').value;
+
+            const book = {
+                id: Date.now(),  // Temporary ID before storing in DynamoDB
+                title,
+                status
+            };
+
+            addBook(book);
+            document.getElementById('bookForm').reset();
+        });
+
+        // Fetch books when the page loads
+        window.onload = fetchBooks;
+    </script>
+</body>
+</html>
